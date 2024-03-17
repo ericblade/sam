@@ -62,6 +62,21 @@ public:
         return m_foregroundInfo;
     }
 
+    const string &getEnvPulseServer() const
+    {
+        return m_envPulseServer;
+    }
+
+    const string &getEnvWaylandDisplay() const
+    {
+        return m_envWaylandDisplay;
+    }
+
+    const string &getEnvXdgRuntimeDir() const
+    {
+        return m_envXdgRuntimeDir;
+    }
+
 protected:
     // AbsLunaClient
     virtual void onInitialzed() override;
@@ -71,15 +86,20 @@ protected:
 private:
     static bool isFullscreenWindowType(const JValue& foreground_info);
     static bool onGetForegroundAppInfo(LSHandle* sh, LSMessage* message, void* context);
+    static bool onGetAppLaunchEnvironment(LSHandle *sh, LSMessage *message, void *context);
 
     LSM();
 
     Call m_getForegroundAppInfoCall;
+    Call m_getAppLaunchEnvironmentCall;
 
     string m_fullWindowAppId;
     vector<string> m_foregroundAppIds;
     JValue m_foregroundInfo;
 
+    string m_envPulseServer;
+    string m_envWaylandDisplay;
+    string m_envXdgRuntimeDir;
 };
 
 #endif

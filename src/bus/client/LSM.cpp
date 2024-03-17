@@ -62,12 +62,13 @@ void LSM::onInitialzed()
 void LSM::onFinalized()
 {
     m_getForegroundAppInfoCall.cancel();
+    m_getAppLaunchEnvironmentCall.cancel();
 }
 
 void LSM::onServerStatusChanged(bool isConnected)
 {
     static string method = string("luna://") + getName() + string("/getForegroundAppInfo");
-
+    static string getAppLaunchEnvironmentMethod = string("luna://") + getName() + string("/getAppLaunchEnvironment");
     if (isConnected) {
         m_getForegroundAppInfoCall = ApplicationManager::getInstance().callMultiReply(
             method.c_str(),
@@ -76,8 +77,16 @@ void LSM::onServerStatusChanged(bool isConnected)
             nullptr
         );
         Logger::logSubscriptionRequest(getClassName(), __FUNCTION__, method, AbsLunaClient::getSubscriptionPayload());
-    } else {
+
+        m_getAppLaunchEnvironmentCall = ApplicationManager::getInstance().callOneReply(
+            getAppLaunchEnvironmentMethod.c_str(),
+            AbsLunaClient::getEmptyPayload().stringify().c_str(),
+            onGetAppLaunchEnvironment,
+            nullptr);
+        Logger::logCallRequest(getClassName(), __FUNCTION__, method, AbsLunaClient::getEmptyPayload());
+    }  else {
         m_getForegroundAppInfoCall.cancel();
+        m_getAppLaunchEnvironmentCall.cancel();
     }
 }
 
@@ -170,3 +179,33 @@ bool LSM::onGetForegroundAppInfo(LSHandle* sh, LSMessage* message, void* context
     return true;
 }
 
+bool LSM::onGetAppLaunchEnvironment(LSHandle *sh, LSMessage *message, void *context)
+{
+    Message response(message);
+    JValue payload = JDomParser::fromString(response.getPayload());
+    Logger::logCallResponse(getInstance().getClassName(), __FUNCTION__, response, payload);
+    if (payload.isNull())
+    {
+        return true;
+    }
+
+    JValue env;
+    if (!JValueUtil::getValue(payload, "env", env))
+    {
+        Logger::error(getInstance().getClassName(), __FUNCTION__, "Failed to get 'env' from getAppLaunchEnvironment");
+        return true;
+    }
+
+    string pulseServer;
+    string waylandDisplay;
+    string xdgRuntimeDir;
+
+    JValueUtil::getValue(env, "PULSE_SERVER", pulseServer);
+    JValueUtil::getValue(env, "WAYLAND_DISPLAY", waylandDisplay);
+    JValueUtil::getValue(env, "XDG_RUNTIME_DIR", xdgRuntimeDir);
+
+    getInstance().m_envPulseServer = pulseServer;
+    getInstance().m_envWaylandDisplay = waylandDisplay;
+    getInstance().m_envXdgRuntimeDir = xdgRuntimeDir;
+    return true;
+}

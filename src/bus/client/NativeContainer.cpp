@@ -22,6 +22,7 @@
 #include "base/RunningAppList.h"
 #include "conf/SAMConf.h"
 #include "conf/RuntimeInfo.h"
+#include "bus/client/LSM.h"
 
 const string NativeContainer::KEY_NATIVE_RUNNING_APPS = "nativeRunningApps";
 int NativeContainer::s_instanceCounter = 1;
@@ -192,6 +193,23 @@ void NativeContainer::launch(RunningAppPtr runningApp, LunaTaskPtr lunaTask)
     runningApp->getLinuxProcess().addEnv("APP_ID", runningApp->getAppId());
     runningApp->getLinuxProcess().addEnv("DISPLAY_ID", std::to_string(runningApp->getDisplayId()));
     runningApp->getLinuxProcess().addEnv("LS2_NAME", Logger::format("%s-%d", runningApp->getAppId().c_str(), s_instanceCounter));
+
+    string pulseServer = LSM::getInstance().getEnvPulseServer();
+    string waylandDisplay = LSM::getInstance().getEnvWaylandDisplay();
+    string xdgRuntimeDir = LSM::getInstance().getEnvXdgRuntimeDir();
+
+    if (pulseServer.length() > 0)
+    {
+        runningApp->getLinuxProcess().addEnv("PULSE_SERVER", pulseServer);
+    }
+    if (waylandDisplay.length() > 0)
+    {
+        runningApp->getLinuxProcess().addEnv("WAYLAND_DISPLAY", waylandDisplay);
+    }
+    if (xdgRuntimeDir.length() > 0)
+    {
+        runningApp->getLinuxProcess().addEnv("XDG_RUNTIME_DIR", xdgRuntimeDir);
+    }
 
     runningApp->setLS2Name(Logger::format("%s-%d", runningApp->getAppId().c_str(), s_instanceCounter));
     if (RuntimeInfo::getInstance().getUser().empty())
