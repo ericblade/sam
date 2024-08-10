@@ -133,7 +133,7 @@ bool ApplicationManager::onAPICalled(LSHandle* sh, LSMessage* message, void* ctx
     }
 
     LunaTaskList::getInstance().add(lunaTask);
-    handler(lunaTask);
+    handler(std::move(lunaTask));
 
 Done:
     if (!errorText.empty()) {
@@ -257,7 +257,7 @@ void ApplicationManager::launch(LunaTaskPtr lunaTask)
         } else if (params.objectSize() == 1 && JValueUtil::getValue(params, "displayAffinity", displayAffinity)) {
             params = launchPoint->getParams();
             params.put("displayAffinity", displayAffinity);
-            lunaTask->setParams(params);
+            lunaTask->setParams(std::move(params));
         }
     }
 
@@ -276,7 +276,7 @@ void ApplicationManager::launch(LunaTaskPtr lunaTask)
     if (lunaTask->getDisplayId() == -1) {
         lunaTask->setDisplayId(0);
     }
-    PolicyManager::getInstance().launch(lunaTask);
+    PolicyManager::getInstance().launch(std::move(lunaTask));
 }
 
 void ApplicationManager::pause(LunaTaskPtr lunaTask)
@@ -287,7 +287,7 @@ void ApplicationManager::pause(LunaTaskPtr lunaTask)
         LunaTaskList::getInstance().removeAfterReply(lunaTask);
         return;
     }
-    PolicyManager::getInstance().pause(lunaTask);
+    PolicyManager::getInstance().pause(std::move(lunaTask));
     return;
 }
 
@@ -304,7 +304,7 @@ void ApplicationManager::close(LunaTaskPtr lunaTask)
         LunaTaskList::getInstance().removeAfterReply(lunaTask);
         return;
     }
-    PolicyManager::getInstance().close(lunaTask);
+    PolicyManager::getInstance().close(std::move(lunaTask));
     return;
 }
 
@@ -323,7 +323,7 @@ void ApplicationManager::running(LunaTaskPtr lunaTask)
         }
     }
     lunaTask->getResponsePayload().put("subscribed", subscribed);
-    LunaTaskList::getInstance().removeAfterReply(lunaTask);
+    LunaTaskList::getInstance().removeAfterReply(std::move(lunaTask));
 }
 
 void ApplicationManager::getAppLifeEvents(LunaTaskPtr lunaTask)
@@ -341,7 +341,7 @@ void ApplicationManager::getAppLifeEvents(LunaTaskPtr lunaTask)
     } else {
         lunaTask->getResponsePayload().put("subscribed", true);
     }
-    LunaTaskList::getInstance().removeAfterReply(lunaTask);
+    LunaTaskList::getInstance().removeAfterReply(std::move(lunaTask));
 }
 
 void ApplicationManager::getAppLifeStatus(LunaTaskPtr lunaTask)
@@ -359,7 +359,7 @@ void ApplicationManager::getAppLifeStatus(LunaTaskPtr lunaTask)
     } else {
         lunaTask->getResponsePayload().put("subscribed", true);
     }
-    LunaTaskList::getInstance().removeAfterReply(lunaTask);
+    LunaTaskList::getInstance().removeAfterReply(std::move(lunaTask));
 }
 
 void ApplicationManager::getForegroundAppInfo(LunaTaskPtr lunaTask)
@@ -382,7 +382,7 @@ void ApplicationManager::getForegroundAppInfo(LunaTaskPtr lunaTask)
     }
     lunaTask->getResponsePayload().put("subscribed", subscribed);
     lunaTask->getResponsePayload().put("returnValue", true);
-    LunaTaskList::getInstance().removeAfterReply(lunaTask);
+    LunaTaskList::getInstance().removeAfterReply(std::move(lunaTask));
 }
 
 void ApplicationManager::lockApp(LunaTaskPtr lunaTask)
@@ -415,6 +415,11 @@ void ApplicationManager::lockApp(LunaTaskPtr lunaTask)
 void ApplicationManager::registerApp(LunaTaskPtr lunaTask)
 {
     string ls2name = lunaTask->getCaller();
+    const pbnjson::JValue& jmsg = lunaTask->getRequestPayload();;
+
+    bool subscribed = true;
+    if (jmsg.hasKey("subscribe"))
+        subscribed = jmsg["subscribe"].asBool();
 
     // Native app registers its name as *APP_ID-INTGETER* which is given by SAM
     RunningAppPtr runningApp = RunningAppList::getInstance().getByLS2Name(ls2name);
@@ -423,11 +428,19 @@ void ApplicationManager::registerApp(LunaTaskPtr lunaTask)
     }
     if (runningApp == nullptr) {
         lunaTask->setErrCodeAndText(ErrCode_GENERAL, ls2name + " is not running");
+        LunaTaskList::getInstance().removeAfterReply(std::move(lunaTask));
+        return;
+    }
+
+    if (!subscribed)
+    {
+        lunaTask->getResponsePayload().put("returnValue", true);
+        lunaTask->getResponsePayload().put("subscribed", false);
         LunaTaskList::getInstance().removeAfterReply(lunaTask);
         return;
     }
 
-    runningApp->registerApp(lunaTask);
+    runningApp->registerApp(std::move(lunaTask));
     // You don't need to reply here
 }
 
@@ -451,7 +464,7 @@ void ApplicationManager::listApps(LunaTaskPtr lunaTask)
     } else {
         lunaTask->getResponsePayload().put("subscribed", false);
     }
-    LunaTaskList::getInstance().removeAfterReply(lunaTask);
+    LunaTaskList::getInstance().removeAfterReply(std::move(lunaTask));
 }
 
 void ApplicationManager::getAppStatus(LunaTaskPtr lunaTask)
@@ -494,7 +507,7 @@ void ApplicationManager::getAppStatus(LunaTaskPtr lunaTask)
         }
     }
 
-    LunaTaskList::getInstance().removeAfterReply(lunaTask);
+    LunaTaskList::getInstance().removeAfterReply(std::move(lunaTask));
 }
 
 void ApplicationManager::getAppInfo(LunaTaskPtr lunaTask)
@@ -525,7 +538,7 @@ void ApplicationManager::getAppInfo(LunaTaskPtr lunaTask)
 
     lunaTask->getResponsePayload().put("appInfo", appInfo);
     lunaTask->getResponsePayload().put("appId", appId);
-    LunaTaskList::getInstance().removeAfterReply(lunaTask);
+    LunaTaskList::getInstance().removeAfterReply(std::move(lunaTask));
 }
 
 void ApplicationManager::getAppBasePath(LunaTaskPtr lunaTask)
@@ -554,7 +567,7 @@ void ApplicationManager::getAppBasePath(LunaTaskPtr lunaTask)
     lunaTask->getResponsePayload().put("appId", appId);
     lunaTask->getResponsePayload().put("basePath", appDesc->getAbsMain());
 
-    LunaTaskList::getInstance().removeAfterReply(lunaTask);
+    LunaTaskList::getInstance().removeAfterReply(std::move(lunaTask));
 }
 
 void ApplicationManager::addLaunchPoint(LunaTaskPtr lunaTask)
@@ -574,7 +587,7 @@ void ApplicationManager::addLaunchPoint(LunaTaskPtr lunaTask)
         return;
     }
 
-    LaunchPointPtr launchPoint = LaunchPointList::getInstance().createBootmarkByAPI(appDesc, requestPayload);
+    LaunchPointPtr launchPoint = LaunchPointList::getInstance().createBootmarkByAPI(std::move(appDesc), requestPayload);
     if (!launchPoint) {
         lunaTask->setErrCodeAndText(ErrCode_GENERAL, "Cannot create bookmark");
         LunaTaskList::getInstance().removeAfterReply(lunaTask);
@@ -583,7 +596,7 @@ void ApplicationManager::addLaunchPoint(LunaTaskPtr lunaTask)
 
     LaunchPointList::getInstance().add(launchPoint);
     lunaTask->getResponsePayload().put("launchPointId", launchPoint->getLaunchPointId());
-    LunaTaskList::getInstance().removeAfterReply(lunaTask);
+    LunaTaskList::getInstance().removeAfterReply(std::move(lunaTask));
 }
 
 void ApplicationManager::updateLaunchPoint(LunaTaskPtr lunaTask)
@@ -606,7 +619,7 @@ void ApplicationManager::updateLaunchPoint(LunaTaskPtr lunaTask)
     requestPayload.remove("launchPointId");
     launchPoint->updateDatabase(requestPayload);
     launchPoint->syncDatabase();
-    LunaTaskList::getInstance().removeAfterReply(lunaTask);
+    LunaTaskList::getInstance().removeAfterReply(std::move(lunaTask));
 }
 
 void ApplicationManager::removeLaunchPoint(LunaTaskPtr lunaTask)
@@ -622,7 +635,7 @@ void ApplicationManager::removeLaunchPoint(LunaTaskPtr lunaTask)
         LunaTaskList::getInstance().removeAfterReply(lunaTask);
         return;
     }
-    PolicyManager::getInstance().removeLaunchPoint(lunaTask);
+    PolicyManager::getInstance().removeLaunchPoint(std::move(lunaTask));
 }
 
 void ApplicationManager::listLaunchPoints(LunaTaskPtr lunaTask)
@@ -638,7 +651,7 @@ void ApplicationManager::listLaunchPoints(LunaTaskPtr lunaTask)
         lunaTask->getResponsePayload().put("subscribed", ApplicationManager::getInstance().m_listLaunchPointsPoint->subscribe(lunaTask->getRequest()));
     else
         lunaTask->getResponsePayload().put("subscribed", false);
-    LunaTaskList::getInstance().removeAfterReply(lunaTask);
+    LunaTaskList::getInstance().removeAfterReply(std::move(lunaTask));
 }
 
 void ApplicationManager::managerInfo(LunaTaskPtr lunaTask)
@@ -662,7 +675,7 @@ void ApplicationManager::managerInfo(LunaTaskPtr lunaTask)
     LunaTaskList::getInstance().toJson(lunaTasks);
     lunaTask->getResponsePayload().put("lunaTasks", lunaTasks);
 
-    LunaTaskList::getInstance().removeAfterReply(lunaTask);
+    LunaTaskList::getInstance().removeAfterReply(std::move(lunaTask));
 }
 
 void ApplicationManager::postGetAppLifeEvents(RunningApp& runningApp)
@@ -1004,7 +1017,6 @@ void ApplicationManager::makeGetForegroundAppInfo(JValue& payload)
         payload.put("instanceId", runningApp->getInstanceId());
         payload.put("launchPointId", runningApp->getLaunchPointId());
 
-        payload.put("windowId", runningApp->getWindowId());
         payload.put("processId", std::to_string(runningApp->getProcessId()));
     }
 }
